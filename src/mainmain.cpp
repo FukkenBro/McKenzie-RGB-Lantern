@@ -5,7 +5,7 @@
 
 //FastLED
 #define LED_COUNT 3
-#define LED_DT 2
+#define LED_DT 9
 #define MAX_BRIGHTNES 255
 struct CRGB leds[LED_COUNT];
 
@@ -14,7 +14,7 @@ struct CRGB leds[LED_COUNT];
 // const int RECV = 3;
 
 // Define IR Receiver and Results Objects
-IRrecv irrecv(3);
+IRrecv irrecv(2);
 decode_results results;
 
 // Иннициаллизация функций ========================================================
@@ -31,7 +31,7 @@ byte *c;
 byte cHue = 255;
 byte cSat = 255;
 byte cVal = 255;
-int lastCommand = 0xFFA25D;
+int lastCommand;
 
 // закрасить все диоды ленты в один цвет
 void one_color_all(int cred, int cgrn, int cblu) {
@@ -49,11 +49,17 @@ void showHSV(byte hue, byte sat, byte val) {
 
 void colorShift(byte hue, byte sat, byte val) {
   if (cHue != hue || cSat != sat || cVal != val) {
+    Serial.println("shift");
     int dirHue = 0;
-    if (((hue - cHue + 255) % 255) < 128) {
+    Serial.print((hue - cHue + 256) % 256);
+    Serial.print(" ? ");
+    Serial.println(128);
+    if (((hue - cHue + 256) % 256) < 128) {
       dirHue = 1;
+      Serial.println("CW");
     } else {
       dirHue = (-1);
+      Serial.println("CCW");
     }
     while (cHue != hue || cSat != sat || cVal != val) {
       if (cHue != hue) {
@@ -74,7 +80,7 @@ void colorShift(byte hue, byte sat, byte val) {
         }
       }
       showHSV(cHue, cSat, cVal);
-      delay(15);
+      delay(5);
     }
   }
 }
@@ -82,6 +88,10 @@ void colorShift(byte hue, byte sat, byte val) {
 void setup() {
   delay(100);
   Serial.begin(9600);
+  // Пины D9 и D10 - 31.4 кГц
+  // Пины D9 и D10 - 30 Гц
+  TCCR1A = 0b00000001;           // 8bit
+  TCCR1B = 0b00000101;           // x1024 phase correct
   one_color_all(255, 255, 255);  // погасить все светодиоды
   LEDS.show();
   LEDS.setBrightness(MAX_BRIGHTNES);                   // ограничить максимальную яркость
@@ -104,72 +114,87 @@ void loop() {
         break;
         // 2 FF629D
       case 0xFF629D:
-        colorShift(20, 255, 255);
+        colorShift(8, 255, 255);
         break;
         // 3 FFE21D
       case 0xFFE21D:
-        colorShift(50, 255, 255);
+        colorShift(17, 255, 255);
         break;
         // 4 FF22DD
       case 0xFF22DD:
-        colorShift(75, 255, 255);
+        colorShift(59, 255, 255);
         break;
         // 5 FF02FD
       case 0xFF02FD:
-        colorShift(100, 255, 255);
+        colorShift(82, 255, 255);
         break;
         // 6 FFC23D
       case 0xFFC23D:
-        colorShift(125, 255, 255);
+        colorShift(131, 255, 255);
         break;
       // 7 FFE01F
       case 0xFFE01F:
-        colorShift(150, 255, 255);
+        colorShift(155, 255, 255);
         break;
         // 8 FFA857
       case 0xFFA857:
-        colorShift(175, 255, 255);
+        colorShift(205, 255, 255);
         break;
         // 9 FF906F
       case 0xFF906F:
-        colorShift(200, 255, 255);
+        colorShift(233, 255, 255);
         break;
         // * FF6897
-      case 0xFF6897:
-        byte sat = constrain(cSat + 10, 0, 255);
+      case 0xFF6897: {
+        int sat = constrain(cSat + 10, 0, 255);
         colorShift(cHue, sat, cVal);
         break;
+      }
         // 0 FF9867
       case 0xFF9867:
 
         break;
         // # FFB04F
-      case 0xFFB04F:
-        sat = constrain(cSat - 10, 0, 255);
+      case 0xFFB04F: {
+        int sat = constrain(cSat - 10, 0, 255);
         colorShift(cHue, sat, cVal);
         break;
+      }
         // UP FF18E7
-      case 0xFF18E7:
-        byte val = constrain(cVal + 1, 0, 255);
+      case 0xFF18E7: {
+        int val = constrain(cVal + 20, 0, 255);
         colorShift(cHue, cSat, val);
         break;
+      }
         // LEFT FF10EF
-      case 0xFF10EF:
-        colorShift(cHue--, cSat, cVal);
+      case 0xFF10EF: {
+        byte hue = cHue - 1;
+        Serial.println("------");
+        Serial.println(cHue);
+        Serial.println(hue);
+        colorShift(hue, cSat, cVal);
         break;
+      }
         // OK FF38C7
       case 0xFF38C7:
 
         break;
         // RIGHT FF5AA5
-      case 0xFF5AA5:
-        colorShift(cHue++, cSat, cVal);
+      case 0xFF5AA5: {
+        byte hue = cHue + 1;
+        Serial.println("++++++");
+        Serial.println(cHue);
+        Serial.println(hue);
+        colorShift(hue, cSat, cVal);
         break;
+      }
         // DOWN FF4AB5
-      case 0xFF4AB5:
-        val = constrain(cVal - 1, 0, 255);
+      case 0xFF4AB5: {
+        int val = constrain(cVal - 20, 0, 255);
         colorShift(cHue, cSat, val);
         break;
+      }
+
         // // REPEAT FFFFFF
         // case 0xFFFFFF:
 
