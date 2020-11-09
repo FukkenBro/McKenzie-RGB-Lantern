@@ -12,13 +12,14 @@ struct CRGB leds[LED_COUNT];
 //ИНТЕРФЕЙСЫ: ========================================================
 
 // Define IR Receiver and Results Objects
-const int RECV_PIN = 4;
+const int RECV_PIN = 2;
 IRrecv irrecv(RECV_PIN);
 decode_results results;
 
 // Иннициаллизация функций ========================================================
 void animation1(byte speedMultiplier);
 void animation2(byte hueDelta, byte speedMultiplier);
+void customAnimation(int speedDelay);
 byte *Wheel(byte WheelPos);
 void heat();
 void fadeOut();
@@ -253,136 +254,142 @@ boolean skip(int millisToSkip, unsigned long lastCheck)
 
 void receiver()
 {
-  if (irrecv.decode(&results))
+  irrecv.decode(&results);
+  int input = results.value;
+  if (input != 0xFFFFFFFF)
   {
-    int input = results.value;
-    if (input != 0xFFFFFFFF)
-    {
-      lastCommand = input;
-    }
-    Serial.println(lastCommand, HEX);
-    switch (lastCommand)
-    {
-      // 1 FFA25D
-    case 0xFFA25D:
-      colorShift(0, 255, 255);
-      break;
-      // 2 FF629D
-    case 0xFF629D:
-      colorShift(8, 255, 255);
-      break;
-      // 3 FFE21D
-    case 0xFFE21D:
-      colorShift(17, 255, 255);
-      break;
-      // 4 FF22DD
-    case 0xFF22DD:
-      colorShift(59, 255, 255);
-      break;
-      // 5 FF02FD
-    case 0xFF02FD:
-      colorShift(82, 255, 255);
-      break;
-      // 6 FFC23D
-    case 0xFFC23D:
-      colorShift(131, 255, 255);
-      break;
-    // 7 FFE01F
-    case 0xFFE01F:
-      colorShift(155, 255, 255);
-      break;
-      // 8 FFA857
-    case 0xFFA857:
-      colorShift(205, 255, 255);
-      break;
-      // 9 FF906F
-    case 0xFF906F:
-      colorShift(233, 255, 255);
-      break;
-      // * FF6897
-    case 0xFF6897:
-    {
-      int sat = constrain(cSat - 10, 0, 255);
-      checkLimits(sat);
-      colorShift(cHue, sat, cVal);
-      break;
-    }
-      // 0 FF9867
-    case 0xFF9867:
-      animation1(10);
-      break;
-      // # FFB04F
-    case 0xFFB04F:
-    {
-      int sat = constrain(cSat + 10, 0, 255);
-      checkLimits(sat);
-      colorShift(cHue, sat, cVal);
-      break;
-    }
-      // UP FF18E7
-    case 0xFF18E7:
-    {
-      int val = constrain(cVal + 10, 40, 255);
-      checkLimits(val, 40, 255);
-      colorShift(cHue, cSat, val);
-      break;
-    }
-      // LEFT FF10EF
-    case 0xFF10EF:
-    {
-      byte hue = cHue - 1;
-      Serial.println("------");
-      Serial.println(cHue);
-      Serial.println(hue);
-      colorShift(hue, cSat, cVal);
-      break;
-    }
-      // OK FF38C7
-    case 0xFF38C7:
-
-      break;
-      // RIGHT FF5AA5
-    case 0xFF5AA5:
-    {
-      byte hue = cHue + 1;
-      Serial.println("++++++");
-      Serial.println(cHue);
-      Serial.println(hue);
-      colorShift(hue, cSat, cVal);
-      break;
-    }
-      // DOWN FF4AB5
-    case 0xFF4AB5:
-    {
-      int val = constrain(cVal - 10, 40, 255);
-      checkLimits(val, 40, 255);
-      colorShift(cHue, cSat, val);
-      break;
-    }
-    }
-    irrecv.resume();
+    lastCommand = input;
   }
+  Serial.println(lastCommand, HEX);
+  switch (lastCommand)
+  {
+    // 1 FFA25D
+  case 0xFFA25D:
+    colorShift(0, 255, 255);
+    break;
+    // 2 FF629D
+  case 0xFF629D:
+    colorShift(8, 255, 255);
+    break;
+    // 3 FFE21D
+  case 0xFFE21D:
+    colorShift(17, 255, 255);
+    break;
+    // 4 FF22DD
+  case 0xFF22DD:
+    colorShift(59, 255, 255);
+    break;
+    // 5 FF02FD
+  case 0xFF02FD:
+    colorShift(82, 255, 255);
+    break;
+    // 6 FFC23D
+  case 0xFFC23D:
+    colorShift(131, 255, 255);
+    break;
+  // 7 FFE01F
+  case 0xFFE01F:
+    colorShift(155, 255, 255);
+    break;
+    // 8 FFA857
+  case 0xFFA857:
+    colorShift(205, 255, 255);
+    break;
+    // 9 FF906F
+  case 0xFF906F:
+    colorShift(233, 255, 255);
+    break;
+    // * FF6897
+  case 0xFF6897:
+  {
+    int sat = constrain(cSat - 10, 0, 255);
+    checkLimits(sat);
+    colorShift(cHue, sat, cVal);
+    break;
+  }
+    // 0 FF9867
+  case 0xFF9867:
+    animation1(10);
+    break;
+    // # FFB04F
+  case 0xFFB04F:
+  {
+    int sat = constrain(cSat + 10, 0, 255);
+    checkLimits(sat);
+    colorShift(cHue, sat, cVal);
+    break;
+  }
+    // UP FF18E7
+  case 0xFF18E7:
+  {
+    int val = constrain(cVal + 10, 40, 255);
+    checkLimits(val, 40, 255);
+    colorShift(cHue, cSat, val);
+    break;
+  }
+    // LEFT FF10EF
+  case 0xFF10EF:
+  {
+    byte hue = cHue - 1;
+    Serial.println("------");
+    Serial.println(cHue);
+    Serial.println(hue);
+    colorShift(hue, cSat, cVal);
+    break;
+  }
+    // OK FF38C7
+  case 0xFF38C7:
+    irrecv.resume();
+    customAnimation(10);
+    break;
+    // RIGHT FF5AA5
+  case 0xFF5AA5:
+  {
+    byte hue = cHue + 1;
+    Serial.println("++++++");
+    Serial.println(cHue);
+    Serial.println(hue);
+    colorShift(hue, cSat, cVal);
+    break;
+  }
+    // DOWN FF4AB5
+  case 0xFF4AB5:
+  {
+    int val = constrain(cVal - 10, 40, 255);
+    checkLimits(val, 40, 255);
+    colorShift(cHue, cSat, val);
+    break;
+  }
+  }
+  irrecv.resume();
 }
 
-void pollIr()
+bool pollIr()
 {
+  if (irrecv.decode(&results))
+  {
+    return true;
+  }
+  return false;
 }
 
 void customAnimation(int speedDelay)
 {
   unsigned long timer = millis();
-  for (size_t i = 0; i < LED_COUNT;)
+  while (!pollIr())
   {
-    receiver();
-    if (skip(speedDelay, timer))
+    for (size_t i = 0; i < LED_COUNT;)
     {
-
-      showHSV(cHue, cSat, cVal);
-      cHue++;
-      i++;
-      timer = millis();
+      if (skip(speedDelay, timer))
+      {
+        showHSV(cHue, cSat, cVal);
+        cHue++;
+        i++;
+        timer = millis();
+      }
     }
   }
+  receiver();
 }
 
 void setup()
@@ -394,15 +401,14 @@ void setup()
   LEDS.setBrightness(MAX_BRIGHTNES);                  // ограничить максимальную яркость
   LEDS.addLeds<WS2811, LED_DT, GRB>(leds, LED_COUNT); // настрйоки для нашей ленты
   irrecv.enableIRIn();
+  // attachInterrupt(digitalPinToInterrupt(RECV_PIN), receiver, CHANGE);
   //  heat();
 }
 
 void loop()
 {
-  if (irrecv.decode(&results))
+  if (pollIr())
   {
-    // Print Code in HEX
-    Serial.println(results.value, HEX);
-    irrecv.resume();
+    receiver();
   }
 }
