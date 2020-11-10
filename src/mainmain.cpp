@@ -17,6 +17,10 @@ IRrecv irrecv(RECV_PIN);
 decode_results results;
 
 // Иннициаллизация функций ========================================================
+boolean isResumable(long code);
+void execute(int code);
+boolean validate(long code);
+void resetIr();
 void animation1(byte speedMultiplier);
 void animation2(byte hueDelta, byte speedMultiplier);
 void customAnimation(int speedDelay);
@@ -33,6 +37,50 @@ byte cSat = 255;
 byte cVal = 255;
 int lastCommand;
 //skip()
+
+unsigned long codes[] = {
+    0xFFA25D,
+    0xFF629D,
+    0xFFE21D,
+    0xFF22DD,
+    0xFF02FD,
+    0xFFC23D,
+    0xFFC23D,
+    0xFFE01F,
+    0xFFA857,
+    0xFF906F,
+    0xFF6897,
+    0xFF9867,
+    0xFFB04F,
+    0xFF18E7,
+    0xFF10EF,
+    0xFF38C7,
+    0xFF5AA5,
+    0xFF4AB5,
+
+    0xFFFFFFFF};
+int codesLenght = 1;
+// resumable Codes (brightness,sat adjustments and timer wont break the animation)
+unsigned long rsmCodes[] = {
+    //*
+    0xFF6897,
+    //#
+    0xFFB04F,
+    //UP
+    0xFF18E7,
+    //LEFT
+    //0xFF10EF,
+    //OK
+    // 0xFF38C7,
+    //RIGHT
+    //0xFF5AA5,
+    //DOWN
+    0xFF4AB5,
+
+    //REPEAT
+    0xFFFFFFFF};
+int rsmCodesLenght = 1;
+
 unsigned int checkpoint;
 long int codes[] = {
     0xFFA25D,
@@ -53,6 +101,22 @@ long int codes[] = {
     0xFF38C7,
     0xFF5AA5};
 int codesSize = sizeof(codes) / sizeof(codes[0]);
+
+int getSize(unsigned long array[])
+{
+  int size = 1;
+  for (size_t i = 0;; i++)
+  {
+    if (array[i] != 0xFFFFFFFF)
+    {
+      size++;
+    }
+    else
+    {
+      return size;
+    }
+  }
+}
 
 // закрасить все диоды ленты в один цвет
 void one_color_all(int cred, int cgrn, int cblu) {
@@ -214,127 +278,134 @@ boolean skip(int millisToSkip, unsigned long lastCheck) {
   return false;
 }
 
-void receiver() {
-  irrecv.decode(&results);
+void receiver()
+{
+  // irrecv.decode(&results);
   int input = results.value;
   if (input != 0xFFFFFFFF) {
     lastCommand = input;
   }
-  Serial.println(lastCommand, HEX);
-  switch (lastCommand) {
-      // 1 FFA25D
-    case 0xFFA25D:
-      colorShift(0, 255, 255);
-      break;
-      // 2 FF629D
-    case 0xFF629D:
-      colorShift(8, 255, 255);
-      break;
-      // 3 FFE21D
-    case 0xFFE21D:
-      colorShift(17, 255, 255);
-      break;
-      // 4 FF22DD
-    case 0xFF22DD:
-      colorShift(59, 255, 255);
-      break;
-      // 5 FF02FD
-    case 0xFF02FD:
-      colorShift(82, 255, 255);
-      break;
-      // 6 FFC23D
-    case 0xFFC23D:
-      colorShift(131, 255, 255);
-      break;
-    // 7 FFE01F
-    case 0xFFE01F:
-      colorShift(155, 255, 255);
-      break;
-      // 8 FFA857
-    case 0xFFA857:
-      colorShift(205, 255, 255);
-      break;
-      // 9 FF906F
-    case 0xFF906F:
-      colorShift(233, 255, 255);
-      break;
-      // * FF6897
-    case 0xFF6897: {
-      int sat = constrain(cSat - 10, 0, 255);
-      checkLimits(sat);
-      colorShift(cHue, sat, cVal);
-      break;
-    }
-      // 0 FF9867
-    case 0xFF9867:
-      irrecv.resume();
-      customAnimation(10);
-      break;
-      // # FFB04F
-    case 0xFFB04F: {
-      int sat = constrain(cSat + 10, 0, 255);
-      checkLimits(sat);
-      colorShift(cHue, sat, cVal);
-      break;
-    }
-      // UP FF18E7
-    case 0xFF18E7: {
-      int val = constrain(cVal + 10, 40, 255);
-      checkLimits(val, 40, 255);
-      colorShift(cHue, cSat, val);
-      break;
-    }
-      // LEFT FF10EF
-    case 0xFF10EF: {
-      byte hue = cHue - 1;
-      Serial.println("------");
-      Serial.println(cHue);
-      Serial.println(hue);
-      colorShift(hue, cSat, cVal);
-      break;
-    }
-      // OK FF38C7
-    case 0xFF38C7:
-      irrecv.resume();
-      customAnimation(10);
-      break;
-      // RIGHT FF5AA5
-    case 0xFF5AA5: {
-      byte hue = cHue + 1;
-      Serial.println("++++++");
-      Serial.println(cHue);
-      Serial.println(hue);
-      colorShift(hue, cSat, cVal);
-      break;
-    }
-      // DOWN FF4AB5
-    case 0xFF4AB5: {
-      int val = constrain(cVal - 10, 40, 255);
-      checkLimits(val, 40, 255);
-      colorShift(cHue, cSat, val);
-      break;
-    }
-  }
-  irrecv.resume();
+  Serial.print('\n');
+  Serial.print(lastCommand, HEX);
+  resetIr();
+  execute(lastCommand);
 }
 
-boolean validateCode(long code) {
-  for (size_t i = 0; i < codesSize; i++) {
-    if (code == codes[i]) {
-      return true;
-    }
+void execute(int code)
+{
+  Serial.print("\n");
+  Serial.print("code:");
+  Serial.println(code, HEX);
+  switch (code)
+  {
+    // 1 FFA25D
+  case 0xFFA25D:
+    colorShift(0, 255, 255);
+    break;
+    // 2 FF629D
+  case 0xFF629D:
+    colorShift(8, 255, 255);
+    break;
+    // 3 FFE21D
+  case 0xFFE21D:
+    colorShift(17, 255, 255);
+    break;
+    // 4 FF22DD
+  case 0xFF22DD:
+    colorShift(59, 255, 255);
+    break;
+    // 5 FF02FD
+  case 0xFF02FD:
+    colorShift(82, 255, 255);
+    break;
+    // 6 FFC23D
+  case 0xFFC23D:
+    colorShift(131, 255, 255);
+    break;
+  // 7 FFE01F
+  case 0xFFE01F:
+    colorShift(155, 255, 255);
+    break;
+    // 8 FFA857
+  case 0xFFA857:
+    colorShift(205, 255, 255);
+    break;
+    // 9 FF906F
+  case 0xFF906F:
+    colorShift(233, 255, 255);
+    break;
+    // * FF6897
+  case 0xFF6897:
+  {
+    int sat = constrain(cSat - 10, 0, 255);
+    checkLimits(sat);
+    colorShift(cHue, sat, cVal);
+    break;
   }
-  return false;
+    // 0 FF9867
+  case 0xFF9867:
+    break;
+    // # FFB04F
+  case 0xFFB04F:
+  {
+    int sat = constrain(cSat + 10, 0, 255);
+    checkLimits(sat);
+    colorShift(cHue, sat, cVal);
+    break;
+  }
+    // UP FF18E7
+  case 0xFF18E7:
+  {
+    int val = constrain(cVal + 10, 40, 255);
+    checkLimits(val, 40, 255);
+    colorShift(cHue, cSat, val);
+    break;
+  }
+    // LEFT FF10EF
+  case 0xFF10EF:
+  {
+    byte hue = cHue - 1;
+    Serial.println("------");
+    Serial.println(cHue);
+    Serial.println(hue);
+    colorShift(hue, cSat, cVal);
+    break;
+  }
+    // OK FF38C7
+  case 0xFF38C7:
+    customAnimation(10);
+    break;
+    // RIGHT FF5AA5
+  case 0xFF5AA5:
+  {
+    byte hue = cHue + 1;
+    Serial.println("++++++");
+    Serial.println(cHue);
+    Serial.println(hue);
+    colorShift(hue, cSat, cVal);
+    break;
+  }
+    // DOWN FF4AB5
+  case 0xFF4AB5:
+  {
+    int val = constrain(cVal - 10, 40, 255);
+    checkLimits(val, 40, 255);
+    colorShift(cHue, cSat, val);
+    break;
+  }
+  }
 }
 
-bool pollIr() {
-  if (irrecv.decode(&results)) {
-    if (validateCode(results.value)) {
-          Serial.println("valid Code");
-          return true;
-        }
-      Serial.println("Received invalid code");
-    return false;
+bool pollIr()
+{
+  if (irrecv.decode(&results))
+  {
+    if (results.value == 0)
+    {
+      return false;
+    }
+
+    return true;
   }
   return false;
 }
@@ -351,7 +422,57 @@ void customAnimation(int speedDelay) {
       }
     }
   }
-  receiver();
+  if (validate(results.value))
+  {
+    if (isResumable(results.value))
+    {
+      receiver();
+      return customAnimation(speedDelay);
+    }
+    receiver();
+    return;
+  }
+  else
+  {
+    return customAnimation(speedDelay);
+  }
+}
+
+boolean validate(long code)
+{
+  for (size_t i = 0; i < codesLenght; i++)
+  {
+    if (code == codes[i])
+    {
+      return true;
+    }
+  }
+  Serial.print("Invalid code: ");
+  Serial.println(results.value, HEX);
+  resetIr();
+  return false;
+}
+
+boolean isResumable(long code)
+{
+  for (size_t i = 0; i < rsmCodesLenght; i++)
+  {
+    if (code == rsmCodes[i])
+    {
+      return true;
+    }
+  }
+  Serial.print("NOT RESUMABLE: ");
+  Serial.println(results.value, HEX);
+  // должно ли это тут быть ?
+  // resetIr();
+  return false;
+}
+
+void resetIr()
+{
+  results.value = 0;
+  irrecv.resume();
 }
 
 void setup() {
@@ -362,13 +483,20 @@ void setup() {
   LEDS.setBrightness(MAX_BRIGHTNES);                   // ограничить максимальную яркость
   LEDS.addLeds<WS2811, LED_DT, GRB>(leds, LED_COUNT);  // настрйоки для нашей ленты
   irrecv.enableIRIn();
-  // attachInterrupt(digitalPinToInterrupt(RECV_PIN), receiver, CHANGE);
-  //  heat();
+  //innitialize and count number of codes
+  codesLenght = getSize(codes);
+  rsmCodesLenght = getSize(rsmCodes);
 }
 
-void loop() {
-  if (pollIr()) {
-    receiver();
+void loop()
+{
+  Serial.println("welcome to the main Loop");
+  if (pollIr())
+  {
+    if (validate(results.value))
+    {
+      receiver();
+    }
   }
   delay(1000);
 }
