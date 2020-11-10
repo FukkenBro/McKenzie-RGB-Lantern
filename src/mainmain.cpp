@@ -17,6 +17,10 @@ IRrecv irrecv(RECV_PIN);
 decode_results results;
 
 // Иннициаллизация функций ========================================================
+boolean isResumable(long code);
+void execute(int code);
+boolean validate(long code);
+void resetIr();
 void animation1(byte speedMultiplier);
 void animation2(byte hueDelta, byte speedMultiplier);
 void customAnimation(int speedDelay);
@@ -33,7 +37,67 @@ byte cSat = 255;
 byte cVal = 255;
 int lastCommand;
 //skip()
+
+unsigned long codes[] = {
+    0xFFA25D,
+    0xFF629D,
+    0xFFE21D,
+    0xFF22DD,
+    0xFF02FD,
+    0xFFC23D,
+    0xFFC23D,
+    0xFFE01F,
+    0xFFA857,
+    0xFF906F,
+    0xFF6897,
+    0xFF9867,
+    0xFFB04F,
+    0xFF18E7,
+    0xFF10EF,
+    0xFF38C7,
+    0xFF5AA5,
+    0xFF4AB5,
+
+    0xFFFFFFFF};
+int codesLenght = 1;
+// resumable Codes (brightness,sat adjustments and timer wont break the animation)
+unsigned long rsmCodes[] = {
+    //*
+    0xFF6897,
+    //#
+    0xFFB04F,
+    //UP
+    0xFF18E7,
+    //LEFT
+    //0xFF10EF,
+    //OK
+    // 0xFF38C7,
+    //RIGHT
+    //0xFF5AA5,
+    //DOWN
+    0xFF4AB5,
+
+    //REPEAT
+    0xFFFFFFFF};
+int rsmCodesLenght = 1;
+
 unsigned int checkpoint;
+
+int getSize(unsigned long array[])
+{
+  int size = 1;
+  for (size_t i = 0;; i++)
+  {
+    if (array[i] != 0xFFFFFFFF)
+    {
+      size++;
+    }
+    else
+    {
+      return size;
+    }
+  }
+}
 
 // закрасить все диоды ленты в один цвет
 void one_color_all(int cred, int cgrn, int cblu)
@@ -254,14 +318,24 @@ boolean skip(int millisToSkip, unsigned long lastCheck)
 
 void receiver()
 {
-  irrecv.decode(&results);
+  // irrecv.decode(&results);
   int input = results.value;
   if (input != 0xFFFFFFFF)
   {
     lastCommand = input;
   }
-  Serial.println(lastCommand, HEX);
-  switch (lastCommand)
+  Serial.print('\n');
+  Serial.print(lastCommand, HEX);
+  resetIr();
+  execute(lastCommand);
+}
+
+void execute(int code)
+{
+  Serial.print("\n");
+  Serial.print("code:");
+  Serial.println(code, HEX);
+  switch (code)
   {
     // 1 FFA25D
   case 0xFFA25D:
@@ -309,7 +383,6 @@ void receiver()
   }
     // 0 FF9867
   case 0xFF9867:
-    animation1(10);
     break;
     // # FFB04F
   case 0xFFB04F:
@@ -339,7 +412,6 @@ void receiver()
   }
     // OK FF38C7
   case 0xFF38C7:
-    irrecv.resume();
     customAnimation(10);
     break;
     // RIGHT FF5AA5
@@ -361,13 +433,17 @@ void receiver()
     break;
   }
   }
-  irrecv.resume();
 }
 
 bool pollIr()
 {
   if (irrecv.decode(&results))
   {
+    if (results.value == 0)
+    {
+      return false;
+    }
+
     return true;
   }
   return false;
@@ -389,7 +465,56 @@ void customAnimation(int speedDelay)
       }
     }
   }
-  receiver();
+  if (validate(results.value))
+  {
+    if (isResumable(results.value))
+    {
+      receiver();
+      return customAnimation(speedDelay);
+    }
+    receiver();
+    return;
+  }
+  else
+  {
+    return customAnimation(speedDelay);
+  }
+}
+
+boolean validate(long code)
+{
+  for (size_t i = 0; i < codesLenght; i++)
+  {
+    if (code == codes[i])
+    {
+      return true;
+    }
+  }
+  Serial.print("Invalid code: ");
+  Serial.println(results.value, HEX);
+  resetIr();
+  return false;
+}
+
+boolean isResumable(long code)
+{
+  for (size_t i = 0; i < rsmCodesLenght; i++)
+  {
+    if (code == rsmCodes[i])
+    {
+      return true;
+    }
+  }
+  Serial.print("NOT RESUMABLE: ");
+  Serial.println(results.value, HEX);
+  resetIr();
+  return false;
+}
+
+void resetIr()
+{
+  results.value = 0;
+  irrecv.resume();
 }
 
 void setup()
@@ -401,14 +526,18 @@ void setup()
   LEDS.setBrightness(MAX_BRIGHTNES);                  // ограничить максимальную яркость
   LEDS.addLeds<WS2811, LED_DT, GRB>(leds, LED_COUNT); // настрйоки для нашей ленты
   irrecv.enableIRIn();
-  // attachInterrupt(digitalPinToInterrupt(RECV_PIN), receiver, CHANGE);
-  //  heat();
+  //innitialize and count number of codes
+  codesLenght = getSize(codes);
+  rsmCodesLenght = getSize(rsmCodes);
 }
 
 void loop()
 {
   if (pollIr())
   {
-    receiver();
+    if (validate(results.value))
+    {
+      receiver();
+    }
   }
 }
