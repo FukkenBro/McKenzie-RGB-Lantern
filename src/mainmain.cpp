@@ -507,7 +507,8 @@ boolean isResumable(long code)
   }
   Serial.print("NOT RESUMABLE: ");
   Serial.println(results.value, HEX);
-  resetIr();
+  // должно ли это тут быть ?
+  // resetIr();
   return false;
 }
 
@@ -533,6 +534,7 @@ void setup()
 
 void loop()
 {
+  Serial.println("welcome to the main Loop");
   if (pollIr())
   {
     if (validate(results.value))
