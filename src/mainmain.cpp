@@ -1,3 +1,4 @@
+//RGB Night Light for McKenzie Rowles by the Snowmade;
 #include <Arduino.h>
 #include <FastLED.h>
 #include <IRremote.h>  // библиотека для ИК
